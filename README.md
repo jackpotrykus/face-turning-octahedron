@@ -1,2 +1,3 @@
 # face-turning-octahedron
-Simulating the Face Turning Octahedron
+Simulating the [Face Turning Octahedron](https://www.amazon.com/Diansheng-Turning-Octahedron-Magnetic-Cube%EF%BC%88Black%EF%BC%89/dp/B0D9XT4NSJ?dib=eyJ2IjoiMSJ9.w4t6tdVYiWFVUKoAviEQ4Oahxd2xHy-AUDxAH05H3hxLqGXXspAOLMR3LcmYWt5k7ZU3d1jRgq8zgFr06fNYqNAYluOtrcX0NyXhnytIpYOitTJ0FbOM5zZli8PGVxtUYMuH_Ng79QUQjZec-SVsZ8uFc-xXDrEP1qprGk3SvrqaVCphPVWNWudIYLz9S-pXscnFjHRbLy6hlycU1JQKALaMgD2LlYrmYFrEEsqwaaHRQxsnuwnB-J6lLdIuwitkC8eYkL9QlgDKivDgt4jiGZG9N6OoMTvu6QWuKvF4bKU.OO_RIrDCMZa2FOgc3rf7_tH8OXW1PsDmJwPhI9HeGTY&dib_tag=se&keywords=Face%2BTurning%2BOctahedron&qid=1736533736&sr=8-5&th=1)
+
