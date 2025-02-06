@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection
 from matplotlib.axes import Axes
 from matplotlib.patches import Polygon
+import numpy as np
+from abc import ABC, abstractmethod
 
 
 NUM_FACES = 8
@@ -55,13 +57,48 @@ class FaceNotation(Enum):
     BACKRIGHT = "BR"
 
 
-class FaceTurningOctahedron:
+class FaceToIndex:
+    LEFT = 0
+    UP = 1
+    RIGHT = 2
+    FRONT = 3
+    BACKRIGHT = 4
+    BACK = 5
+    BACKLEFT = 6
+    DOWN = 7
+
+
+class TwistyPuzzle(ABC):
+    @abstractmethod
+    def reset(self) -> None:
+        pass
+
+    @abstractmethod
+    def rotate_face(self, face_index: int, counter_clockwise: bool = False) -> None:
+        pass
+
+    @abstractmethod
+    def get_state_array(self) -> np.ndarray:
+        pass
+
+    @abstractmethod
+    def is_solved(self) -> bool:
+        pass
+
+
+class FaceTurningOctahedron(TwistyPuzzle):
     def __init__(self) -> None:
-        """Faces are numbered as follows
+        """Faces are numbered as follows:
 
            1          5
         0     2    4     6
            3          7
+
+        Equivalently:
+           U           B
+        L     R    BR     BL
+           F           D
+
 
         The triangles on each face are numbered as follows:
         - Corners: 0, 2, 6
@@ -70,17 +107,29 @@ class FaceTurningOctahedron:
         Each sequence starts at the tip of the face facing towards the intersection of the square and continues clockwise
         """
         # Initialize the puzzle with solved state
+        # self.faces: List[List[FaceColor]] = [
+        #     # These are Square 0
+        #     [FaceColor.WHITE] * NUM_TRIANGLES_PER_FACE,  # White Face
+        #     [FaceColor.RED] * NUM_TRIANGLES_PER_FACE,  # Red face
+        #     [FaceColor.GREEN] * NUM_TRIANGLES_PER_FACE,  # Blue face
+        #     [FaceColor.PURPLE] * NUM_TRIANGLES_PER_FACE,  # Green face
+        #     # These are Square 1
+        #     [FaceColor.YELLOW] * NUM_TRIANGLES_PER_FACE,  # Yellow face
+        #     [FaceColor.GRAY] * NUM_TRIANGLES_PER_FACE,  # Orange face
+        #     [FaceColor.BLUE] * NUM_TRIANGLES_PER_FACE,  # Purple face
+        #     [FaceColor.ORANGE] * NUM_TRIANGLES_PER_FACE,  # Gray face
+        # ]
         self.faces: List[List[FaceColor]] = [
             # These are Square 0
-            [FaceColor.PINK] + [FaceColor.WHITE] * (NUM_TRIANGLES_PER_FACE - 1),  # White Face
-            [FaceColor.RED] * NUM_TRIANGLES_PER_FACE,  # Red face
-            [FaceColor.GREEN] * NUM_TRIANGLES_PER_FACE,  # Blue face
-            [FaceColor.PURPLE] * NUM_TRIANGLES_PER_FACE,  # Green face
+            [FaceColor.PINK] * NUM_TRIANGLES_PER_FACE,  # White Face
+            [FaceColor.PINK] * NUM_TRIANGLES_PER_FACE,  # Red face
+            [FaceColor.PINK] * NUM_TRIANGLES_PER_FACE,  # Blue face
+            [FaceColor.PINK] * NUM_TRIANGLES_PER_FACE,  # Green face
             # These are Square 1
-            [FaceColor.YELLOW] * NUM_TRIANGLES_PER_FACE,  # Yellow face
-            [FaceColor.GRAY] * NUM_TRIANGLES_PER_FACE,  # Orange face
-            [FaceColor.BLUE] * NUM_TRIANGLES_PER_FACE,  # Purple face
-            [FaceColor.ORANGE] * NUM_TRIANGLES_PER_FACE,  # Gray face
+            [FaceColor.PINK] * NUM_TRIANGLES_PER_FACE,  # Yellow face
+            [FaceColor.ORANGE] * NUM_TRIANGLES_PER_FACE,  # Yellow face
+            [FaceColor.PURPLE] * NUM_TRIANGLES_PER_FACE,  # Purple face
+            [FaceColor.GREEN] * NUM_TRIANGLES_PER_FACE,  # Gray face
         ]
 
         # self.faces = [
@@ -116,7 +165,9 @@ class FaceTurningOctahedron:
 
         # Move the side pieces as part of the layer rotation
         adjacent_side_faces = self.get_adjacent_side_faces(face_index)
-        for prev_idx, next_idx in zip(adjacent_side_faces, adjacent_side_faces[1:] + adjacent_side_faces[:1]):
+        for prev_idx, next_idx in zip(
+            adjacent_side_faces, adjacent_side_faces[1:] + adjacent_side_faces[:1]
+        ):
             sigil = (face_index % 4) - (prev_idx % 4)
             # NOTE: This might not ever happen... can possibly be removed
             if sigil == 0:
@@ -141,7 +192,9 @@ class FaceTurningOctahedron:
             CORNER_INDICES,
             CORNER_INDICES[1:] + CORNER_INDICES[:1],
         ):
-            self.faces[next_idx][next_triangle_idx] = init_faces[prev_idx][prev_triangle_idx]
+            self.faces[next_idx][next_triangle_idx] = init_faces[prev_idx][
+                prev_triangle_idx
+            ]
 
     def get_adjacent_side_faces(self, face_index: int) -> List[int]:
         # Which is first doesn't matter, but should reflect clockwise rotation of key face
@@ -182,6 +235,14 @@ class FaceTurningOctahedron:
     def rotate_triangle_clockwise(self, face: List[FaceColor]) -> List[FaceColor]:
         return [face[TRIANGLE_ROTATION_MAP[i]] for i in range(NUM_TRIANGLES_PER_FACE)]
 
+    def get_state_array(self) -> np.ndarray:
+        number_by_color = {color: idx for idx, color in enumerate(FaceColor)}
+
+        return np.array([[number_by_color[triangle] for triangle in face] for face in self.faces], dtype=np.int32)
+
+    def is_solved(self) -> bool:
+        return all(len(set(face)) == 1 for face in self.faces)
+
 
 def draw_puzzle(ax: Axes, fto: FaceTurningOctahedron) -> None:
     collection = draw_fto_net_with_colors(fto.colors_by_triangle())
@@ -189,36 +250,15 @@ def draw_puzzle(ax: Axes, fto: FaceTurningOctahedron) -> None:
     ax.autoscale_view()
 
 
-def update_plot(fto: FaceTurningOctahedron, ax: Axes) -> None:
+def update_plot(fto: FaceTurningOctahedron, ax: Axes, fig: plt.Figure) -> None:
     ax.clear()
-    ax.set_title("Face Turning Octahedron")
     draw_puzzle(ax, fto)
+    fig.canvas.draw()  # Ensure the canvas is updated
 
 
-# This is a little hacky workaround to deal with some repeated frame idxs bug from matplotlib
-prev_i = None
-
-
-def animate(i: int, fto: FaceTurningOctahedron, ax: Axes) -> None:
-    global prev_i
-    if i == prev_i:
-        return
-    prev_i = i
-
-    sigil = i % 4
-    if sigil == 0:
-        fto.rotate_face(2, counter_clockwise=True)
-    elif sigil == 1:
-        fto.rotate_face(0)
-    elif sigil == 2:
-        fto.rotate_face(2)
-    else:
-        fto.rotate_face(0, counter_clockwise=True)
-
-    update_plot(fto, ax)
-
-
-def draw_fto_net_with_colors(color_map: Optional[Dict[Tuple[int, int, int], str]] = None) -> PatchCollection:
+def draw_fto_net_with_colors(
+    color_map: Optional[Dict[Tuple[int, int, int], str]] = None
+) -> PatchCollection:
     """
     Draws the FTO net with two squares, each containing 4 faces,
     with faces rotated so that their tips meet at the center.
@@ -299,7 +339,11 @@ def draw_fto_net_with_colors(color_map: Optional[Dict[Tuple[int, int, int], str]
                     color_key = (square_index, face_index, i * 3 + j)
                     # print(color_key)
                     # print(color_map)
-                    colors.append(color_map.get(color_key, FaceColor.VOID.value) if color_map else FaceColor.VOID.value)
+                    colors.append(
+                        color_map.get(color_key, FaceColor.VOID.value)
+                        if color_map
+                        else FaceColor.VOID.value
+                    )
 
             # Add center pieces between triangles
             for i in range(3):
@@ -307,8 +351,12 @@ def draw_fto_net_with_colors(color_map: Optional[Dict[Tuple[int, int, int], str]
                     if i < 2 and j < 2 - i:
                         # Calculate center triangle vertices
                         center_t1 = (
-                            v1[0] + (i + 1) * (v2[0] - v1[0]) / 3 + (j + 1) * (v3[0] - v1[0]) / 3,
-                            v1[1] + (i + 1) * (v2[1] - v1[1]) / 3 + (j + 1) * (v3[1] - v1[1]) / 3,
+                            v1[0]
+                            + (i + 1) * (v2[0] - v1[0]) / 3
+                            + (j + 1) * (v3[0] - v1[0]) / 3,
+                            v1[1]
+                            + (i + 1) * (v2[1] - v1[1]) / 3
+                            + (j + 1) * (v3[1] - v1[1]) / 3,
                         )
                         center_t2 = (
                             center_t1[0] - (v2[0] - v1[0]) / 3,
@@ -318,7 +366,9 @@ def draw_fto_net_with_colors(color_map: Optional[Dict[Tuple[int, int, int], str]
                             center_t1[0] - (v3[0] - v1[0]) / 3,
                             center_t1[1] - (v3[1] - v1[1]) / 3,
                         )
-                        patches.append(Polygon([center_t1, center_t2, center_t3], closed=True))
+                        patches.append(
+                            Polygon([center_t1, center_t2, center_t3], closed=True)
+                        )
 
                         # Assign colors correctly for the center pieces
                         center_color_key = (
@@ -329,10 +379,27 @@ def draw_fto_net_with_colors(color_map: Optional[Dict[Tuple[int, int, int], str]
                         # print("center i ", i, " j ", j)
                         # print("center", center_color_key)
                         colors.append(
-                            color_map.get(center_color_key, FaceColor.VOID.value) if color_map else FaceColor.VOID.value
+                            color_map.get(center_color_key, FaceColor.VOID.value)
+                            if color_map
+                            else FaceColor.VOID.value
                         )
 
     return PatchCollection(patches, edgecolor="black", facecolor=colors, linewidths=1)
+
+
+def create_scrambled_fto(n_moves: int = 20) -> Tuple[FaceTurningOctahedron, List[str]]:
+    import random
+
+    fto = FaceTurningOctahedron()
+    scramble = []
+    for _ in range(n_moves):
+        face_index = random.randint(0, 7)
+        counter_clockwise = random.choice([True, False])
+        fto.rotate_face(face_index, counter_clockwise)
+        face_notation = [k[0] for k, v in FaceToIndex.__dict__.items() if v == face_index][0]
+        move_notation = face_notation + ("'" if counter_clockwise else "")
+        scramble.append(move_notation)
+    return fto, scramble
 
 
 def main() -> None:
